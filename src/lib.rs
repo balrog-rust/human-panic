@@ -40,9 +40,10 @@
 //!
 //! Thank you kindly!
 
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#![cfg_attr(feature = "nightly", deny(missing_docs))]
 #![cfg_attr(feature = "nightly", feature(panic_info_message))]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![warn(clippy::print_stderr)]
+#![warn(clippy::print_stdout)]
 
 pub mod report;
 use report::{Method, Report};
@@ -56,26 +57,60 @@ use std::path::{Path, PathBuf};
 ///
 /// See [`metadata!`]
 pub struct Metadata {
-    /// The crate version
-    pub version: Cow<'static, str>,
-    /// The crate name
-    pub name: Cow<'static, str>,
+    name: Cow<'static, str>,
+    version: Cow<'static, str>,
+    authors: Option<Cow<'static, str>>,
+    homepage: Option<Cow<'static, str>>,
+    support: Option<Cow<'static, str>>,
+}
+
+impl Metadata {
+    /// See [`metadata!`]
+    pub fn new(name: impl Into<Cow<'static, str>>, version: impl Into<Cow<'static, str>>) -> Self {
+        Self {
+            name: name.into(),
+            version: version.into(),
+            authors: None,
+            homepage: None,
+            support: None,
+        }
+    }
+
     /// The list of authors of the crate
-    pub authors: Cow<'static, str>,
+    pub fn authors(mut self, value: impl Into<Cow<'static, str>>) -> Self {
+        let value = value.into();
+        if !value.is_empty() {
+            self.authors = value.into();
+        }
+        self
+    }
+
     /// The URL of the crate's website
-    pub homepage: Cow<'static, str>,
+    pub fn homepage(mut self, value: impl Into<Cow<'static, str>>) -> Self {
+        let value = value.into();
+        if !value.is_empty() {
+            self.homepage = value.into();
+        }
+        self
+    }
+
+    /// The support information
+    pub fn support(mut self, value: impl Into<Cow<'static, str>>) -> Self {
+        let value = value.into();
+        if !value.is_empty() {
+            self.support = value.into();
+        }
+        self
+    }
 }
 
 /// Initialize [`Metadata`]
 #[macro_export]
 macro_rules! metadata {
     () => {{
-        $crate::Metadata {
-            version: env!("CARGO_PKG_VERSION").into(),
-            name: env!("CARGO_PKG_NAME").into(),
-            authors: env!("CARGO_PKG_AUTHORS").replace(":", ", ").into(),
-            homepage: env!("CARGO_PKG_HOMEPAGE").into(),
-        }
+        $crate::Metadata::new(env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"))
+            .authors(env!("CARGO_PKG_AUTHORS").replace(":", ", "))
+            .homepage(env!("CARGO_PKG_HOMEPAGE"))
     }};
 }
 
@@ -93,34 +128,18 @@ macro_rules! metadata {
 ///
 /// ```
 /// use human_panic::setup_panic;
+/// use human_panic::Metadata;
 ///
-/// setup_panic!(Metadata {
-///     name: env!("CARGO_PKG_NAME").into(),
-///     version: env!("CARGO_PKG_VERSION").into(),
-///     authors: "My Company Support <support@mycompany.com>".into(),
-///     homepage: "support.mycompany.com".into(),
-/// });
+/// setup_panic!(Metadata::new(env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"))
+///     .authors("My Company Support <support@mycompany.com>")
+///     .homepage("support.mycompany.com")
+///     .support("- Open a support request by email to support@mycompany.com")
+/// );
 /// ```
 #[macro_export]
 macro_rules! setup_panic {
     ($meta:expr) => {{
-        #[allow(unused_imports)]
-        use std::panic::{self, PanicInfo};
-        #[allow(unused_imports)]
-        use $crate::{handle_dump, print_msg, Metadata};
-
-        match $crate::PanicStyle::default() {
-            $crate::PanicStyle::Debug => {}
-            $crate::PanicStyle::Human => {
-                let meta = $meta;
-
-                panic::set_hook(Box::new(move |info: &PanicInfo| {
-                    let file_path = handle_dump(&meta, info);
-                    print_msg(file_path, &meta)
-                        .expect("human-panic: printing error message to console failed");
-                }));
-            }
-        }
+        $crate::setup_panic(|| $meta);
     }};
 
     () => {
@@ -128,7 +147,27 @@ macro_rules! setup_panic {
     };
 }
 
+#[doc(hidden)]
+pub fn setup_panic(meta: impl Fn() -> Metadata) {
+    #[allow(unused_imports)]
+    use std::panic::{self, PanicInfo};
+
+    match PanicStyle::default() {
+        PanicStyle::Debug => {}
+        PanicStyle::Human => {
+            let meta = meta();
+
+            panic::set_hook(Box::new(move |info: &PanicInfo<'_>| {
+                let file_path = handle_dump(&meta, info);
+                print_msg(file_path, &meta)
+                    .expect("human-panic: printing error message to console failed");
+            }));
+        }
+    }
+}
+
 /// Style of panic to be used
+#[non_exhaustive]
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum PanicStyle {
     /// Normal panic
@@ -180,8 +219,13 @@ fn write_msg<P: AsRef<Path>>(
     file_path: Option<P>,
     meta: &Metadata,
 ) -> IoResult<()> {
-    let (_version, name, authors, homepage) =
-        (&meta.version, &meta.name, &meta.authors, &meta.homepage);
+    let Metadata {
+        name,
+        authors,
+        homepage,
+        support,
+        ..
+    } = meta;
 
     writeln!(buffer, "Well, this is embarrassing.\n")?;
     writeln!(
@@ -196,16 +240,19 @@ fn write_msg<P: AsRef<Path>>(
      report as an attachment.\n",
         match file_path {
             Some(fp) => format!("{}", fp.as_ref().display()),
-            None => "<Failed to store file to disk>".to_string(),
+            None => "<Failed to store file to disk>".to_owned(),
         },
         name
     )?;
 
-    if !homepage.is_empty() {
+    if let Some(homepage) = homepage {
         writeln!(buffer, "- Homepage: {homepage}")?;
     }
-    if !authors.is_empty() {
+    if let Some(authors) = authors {
         writeln!(buffer, "- Authors: {authors}")?;
+    }
+    if let Some(support) = support {
+        writeln!(buffer, "\nTo submit the crash report:\n\n{support}")?;
     }
     writeln!(
         buffer,
@@ -219,7 +266,7 @@ fn write_msg<P: AsRef<Path>>(
 }
 
 /// Utility function which will handle dumping information to disk
-pub fn handle_dump(meta: &Metadata, panic_info: &PanicInfo) -> Option<PathBuf> {
+pub fn handle_dump(meta: &Metadata, panic_info: &PanicInfo<'_>) -> Option<PathBuf> {
     let mut expl = String::new();
 
     #[cfg(feature = "nightly")]
@@ -230,8 +277,8 @@ pub fn handle_dump(meta: &Metadata, panic_info: &PanicInfo) -> Option<PathBuf> {
         panic_info.payload().downcast_ref::<&str>(),
         panic_info.payload().downcast_ref::<String>(),
     ) {
-        (Some(s), _) => Some(s.to_string()),
-        (_, Some(s)) => Some(s.to_string()),
+        (Some(s), _) => Some((*s).to_owned()),
+        (_, Some(s)) => Some(s.to_owned()),
         (None, None) => None,
     };
 
@@ -251,11 +298,20 @@ pub fn handle_dump(meta: &Metadata, panic_info: &PanicInfo) -> Option<PathBuf> {
 
     let report = Report::new(&meta.name, &meta.version, Method::Panic, expl, cause);
 
-    match report.persist() {
-        Ok(f) => Some(f),
-        Err(_) => {
-            eprintln!("{}", report.serialize().unwrap());
-            None
-        }
+    if let Ok(f) = report.persist() {
+        Some(f)
+    } else {
+        use std::io::Write as _;
+        let stderr = std::io::stderr();
+        let mut stderr = stderr.lock();
+
+        let _ = writeln!(
+            stderr,
+            "{}",
+            report
+                .serialize()
+                .expect("only doing toml compatible types")
+        );
+        None
     }
 }
