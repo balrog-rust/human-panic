@@ -148,26 +148,26 @@ impl Default for PanicStyle {
 }
 
 /// Utility function that prints a message to our human users
-#[cfg(feature = "color")]
 pub fn print_msg<P: AsRef<Path>>(file_path: Option<P>, meta: &Metadata) -> IoResult<()> {
-    use std::io::Write as _;
+    #[cfg(feature = "color")]
+    {
+        use std::io::Write as _;
 
-    let stderr = anstream::stderr();
-    let mut stderr = stderr.lock();
+        let stderr = anstream::stderr();
+        let mut stderr = stderr.lock();
 
-    write!(stderr, "{}", anstyle::AnsiColor::Red.render_fg())?;
-    write_msg(&mut stderr, file_path, meta)?;
-    write!(stderr, "{}", anstyle::Reset.render())?;
+        write!(stderr, "{}", anstyle::AnsiColor::Red.render_fg())?;
+        write_msg(&mut stderr, file_path, meta)?;
+        write!(stderr, "{}", anstyle::Reset.render())?;
+    }
 
-    Ok(())
-}
+    #[cfg(not(feature = "color"))]
+    {
+        let stderr = std::io::stderr();
+        let mut stderr = stderr.lock();
 
-#[cfg(not(feature = "color"))]
-pub fn print_msg<P: AsRef<Path>>(file_path: Option<P>, meta: &Metadata) -> IoResult<()> {
-    let stderr = std::io::stderr();
-    let mut stderr = stderr.lock();
-
-    write_msg(&mut stderr, file_path, meta)?;
+        write_msg(&mut stderr, file_path, meta)?;
+    }
 
     Ok(())
 }
