@@ -2,6 +2,7 @@
 #[cfg_attr(debug_assertions, ignore)]
 fn release() {
     snapbox::cmd::Command::new(snapbox::cmd::cargo_bin!("custom-panic-test"))
+        .env_remove("CI")
         .assert()
         .stderr_eq(snapbox::str![[r#"
 Well, this is embarrassing.
@@ -29,6 +30,7 @@ Thank you kindly!
 #[cfg_attr(not(debug_assertions), ignore)]
 fn debug() {
     snapbox::cmd::Command::new(snapbox::cmd::cargo_bin!("custom-panic-test"))
+        .env_remove("CI")
         .assert()
         .stderr_eq(snapbox::str![[r#"
 
