@@ -18,8 +18,22 @@ pub fn setup_panic(meta: impl Fn() -> Metadata) {
             let meta = meta();
 
             panic::set_hook(Box::new(move |info: &PanicHookInfo<'_>| {
-                let file_path = handle_dump(&meta, info);
-                print_msg(file_path, &meta)
+                let report = Report::with_panic(&meta, info);
+                let file_path = report.persist().ok();
+                if file_path.is_none() {
+                    use std::io::Write as _;
+                    let stderr = std::io::stderr();
+                    let mut stderr = stderr.lock();
+
+                    let _ = writeln!(
+                        stderr,
+                        "{}",
+                        report
+                            .serialize()
+                            .expect("only doing toml compatible types")
+                    );
+                }
+                print_msg(file_path.as_deref(), &meta)
                     .expect("human-panic: printing error message to console failed");
             }));
         }
