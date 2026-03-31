@@ -127,11 +127,22 @@ fn release_with_ci() {
         .env("CI", "1")
         .assert()
         .stderr_eq(snapbox::str![[r#"
+name = "single-panic-test"
+operating_system = "[..]"
+crate_version = "0.1.0"
+explanation = [..]
+Panic occurred in file 'tests/single-panic/src/main.rs' at line 27
+[..]
+cause = "OMG EVERYTHING IS ON FIRE!!!"
+method = "Panic"
+backtrace = [..]
+...
+
 Well, this is embarrassing.
 
 single-panic-test had a problem and crashed. To help us diagnose the problem you can send us a crash report.
 
-We have generated a report file at "[..].toml". Submit an issue or email with the subject of "single-panic-test Crash Report" and include the report as an attachment.
+We have generated a report file at "<Failed to store file to disk>". Submit an issue or email with the subject of "single-panic-test Crash Report" and include the report as an attachment.
 
 - Authors: Human Panic Authors <human-panic-crate@example.com>
 
@@ -144,7 +155,7 @@ Thank you kindly!
 
     #[cfg(unix)]
     {
-        let mut files = root_path
+        let files = root_path
             .read_dir()
             .unwrap()
             .map(|e| {
@@ -154,26 +165,7 @@ Thank you kindly!
                 (path, content)
             })
             .collect::<Vec<_>>();
-        assert_eq!(files.len(), 1, "{files:?}");
-        let (_, report) = files.pop().unwrap();
-        let report = report.unwrap();
-        snapbox::assert_data_eq!(
-            report,
-            snapbox::str![[r#"
-name = "single-panic-test"
-operating_system = "[..]"
-crate_version = "0.1.0"
-explanation = """
-Panic occurred in file 'tests/single-panic/src/main.rs' at line [..]
-"""
-cause = "OMG EVERYTHING IS ON FIRE!!!"
-method = "Panic"
-backtrace = """
-...
-"""
-
-"#]]
-        );
+        assert_eq!(files.len(), 0, "{files:?}");
     }
 
     root.close().unwrap();

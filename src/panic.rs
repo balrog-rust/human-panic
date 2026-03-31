@@ -19,7 +19,7 @@ pub fn setup_panic(meta: impl Fn() -> Metadata) {
 
             panic::set_hook(Box::new(move |info: &PanicHookInfo<'_>| {
                 let report = Report::with_panic(&meta, info);
-                let file_path = report.persist().ok();
+                let file_path = if is_ci() { None } else { report.persist().ok() };
                 if file_path.is_none() {
                     use std::io::Write as _;
                     let stderr = std::io::stderr();
@@ -38,6 +38,11 @@ pub fn setup_panic(meta: impl Fn() -> Metadata) {
             }));
         }
     }
+}
+
+/// Returns whether we are running in a CI environment.
+fn is_ci() -> bool {
+    std::env::var_os("CI").is_some()
 }
 
 /// Style of panic to be used
