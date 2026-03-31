@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+### Fixes
+
+- Don't write to tmpdir in CI
+- Remove "embarrassing" comment
+- Skip file write failure message since it is redundant
+
 ## [2.0.6] - 2025-12-29
 
 ### Features
