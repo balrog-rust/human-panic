@@ -3,7 +3,6 @@ use std::panic::PanicHookInfo;
 use std::path::{Path, PathBuf};
 
 use crate::Metadata;
-use crate::report::Method;
 use crate::report::Report;
 
 #[doc(hidden)]
@@ -132,32 +131,7 @@ fn write_msg<P: AsRef<Path>>(
 /// Utility function which will handle dumping information to disk
 #[allow(deprecated)]
 pub fn handle_dump(meta: &Metadata, panic_info: &PanicHookInfo<'_>) -> Option<PathBuf> {
-    let mut expl = String::new();
-
-    let message = match (
-        panic_info.payload().downcast_ref::<&str>(),
-        panic_info.payload().downcast_ref::<String>(),
-    ) {
-        (Some(s), _) => Some((*s).to_owned()),
-        (_, Some(s)) => Some(s.to_owned()),
-        (None, None) => None,
-    };
-
-    let cause = match message {
-        Some(m) => m,
-        None => "Unknown".into(),
-    };
-
-    match panic_info.location() {
-        Some(location) => expl.push_str(&format!(
-            "Panic occurred in file '{}' at line {}\n",
-            location.file(),
-            location.line()
-        )),
-        None => expl.push_str("Panic location unknown.\n"),
-    }
-
-    let report = Report::new(&meta.name, &meta.version, Method::Panic, expl, cause);
+    let report = Report::with_panic(meta, panic_info);
 
     if let Ok(f) = report.persist() {
         Some(f)
