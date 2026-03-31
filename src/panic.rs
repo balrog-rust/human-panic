@@ -107,7 +107,6 @@ fn write_msg<P: AsRef<Path>>(
         ..
     } = meta;
 
-    writeln!(buffer, "Well, this is embarrassing.\n")?;
     writeln!(
         buffer,
         "{name} had a problem and crashed. To help us diagnose the \
