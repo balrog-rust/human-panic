@@ -113,17 +113,16 @@ fn write_msg<P: AsRef<Path>>(
         "{name} had a problem and crashed. To help us diagnose the \
      problem you can send us a crash report.\n"
     )?;
-    writeln!(
-        buffer,
-        "We have generated a report file at \"{}\". Submit an \
+    if let Some(file_path) = file_path {
+        writeln!(
+            buffer,
+            "We have generated a report file at \"{}\". Submit an \
      issue or email with the subject of \"{} Crash Report\" and include the \
      report as an attachment.\n",
-        match file_path {
-            Some(fp) => format!("{}", fp.as_ref().display()),
-            None => "<Failed to store file to disk>".to_owned(),
-        },
-        name
-    )?;
+            file_path.as_ref().display(),
+            name
+        )?;
+    }
 
     if let Some(homepage) = homepage {
         writeln!(buffer, "- Homepage: {homepage}")?;
