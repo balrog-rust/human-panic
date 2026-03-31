@@ -48,75 +48,16 @@
 #[cfg(doctest)]
 pub struct ReadmeDoctests;
 
+mod metadata;
+
 pub mod report;
+pub use metadata::Metadata;
+
 use report::{Method, Report};
 
-use std::borrow::Cow;
 use std::io::Result as IoResult;
 use std::panic::PanicHookInfo;
 use std::path::{Path, PathBuf};
-
-/// A convenient metadata struct that describes a crate
-///
-/// See [`metadata!`]
-pub struct Metadata {
-    name: Cow<'static, str>,
-    version: Cow<'static, str>,
-    authors: Option<Cow<'static, str>>,
-    homepage: Option<Cow<'static, str>>,
-    repository: Option<Cow<'static, str>>,
-    support: Option<Cow<'static, str>>,
-}
-
-impl Metadata {
-    /// See [`metadata!`]
-    pub fn new(name: impl Into<Cow<'static, str>>, version: impl Into<Cow<'static, str>>) -> Self {
-        Self {
-            name: name.into(),
-            version: version.into(),
-            authors: None,
-            homepage: None,
-            repository: None,
-            support: None,
-        }
-    }
-
-    /// The list of authors of the crate
-    pub fn authors(mut self, value: impl Into<Cow<'static, str>>) -> Self {
-        let value = value.into();
-        if !value.is_empty() {
-            self.authors = value.into();
-        }
-        self
-    }
-
-    /// The URL of the crate's website
-    pub fn homepage(mut self, value: impl Into<Cow<'static, str>>) -> Self {
-        let value = value.into();
-        if !value.is_empty() {
-            self.homepage = value.into();
-        }
-        self
-    }
-
-    /// The URL of the crate's repository
-    pub fn repository(mut self, value: impl Into<Cow<'static, str>>) -> Self {
-        let value = value.into();
-        if !value.is_empty() {
-            self.repository = value.into();
-        }
-        self
-    }
-
-    /// The support information
-    pub fn support(mut self, value: impl Into<Cow<'static, str>>) -> Self {
-        let value = value.into();
-        if !value.is_empty() {
-            self.support = value.into();
-        }
-        self
-    }
-}
 
 /// Initialize [`Metadata`]
 #[macro_export]
