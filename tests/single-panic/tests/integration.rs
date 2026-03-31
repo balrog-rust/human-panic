@@ -66,6 +66,50 @@ backtrace = """
 }
 
 #[test]
+#[cfg_attr(debug_assertions, ignore)]
+fn release_with_backtraces() {
+    let root = snapbox::dir::DirRoot::mutable_temp().unwrap();
+    let root_path = root.path().unwrap();
+
+    #[cfg(unix)]
+    let envs = [("TMPDIR", root_path)];
+    #[cfg(not(unix))]
+    let envs: [(&str, &str); 0] = [];
+
+    snapbox::cmd::Command::new(snapbox::cmd::cargo_bin!("single-panic-test"))
+        .envs(envs)
+        .env("RUST_BACKTRACE", "1")
+        .assert()
+        .stderr_eq(snapbox::str![[r#"
+
+thread 'main' ([..]) panicked at tests/single-panic/src/main.rs:[..]:
+OMG EVERYTHING IS ON FIRE!!!
+stack backtrace:
+...
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+
+"#]])
+        .code(101);
+
+    #[cfg(unix)]
+    {
+        let files = root_path
+            .read_dir()
+            .unwrap()
+            .map(|e| {
+                let e = e.unwrap();
+                let path = e.path();
+                let content = std::fs::read_to_string(&path);
+                (path, content)
+            })
+            .collect::<Vec<_>>();
+        assert!(files.is_empty(), "{files:?}");
+    }
+
+    root.close().unwrap();
+}
+
+#[test]
 #[cfg_attr(not(debug_assertions), ignore)]
 fn debug() {
     let root = snapbox::dir::DirRoot::mutable_temp().unwrap();
