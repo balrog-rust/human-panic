@@ -3,13 +3,17 @@
 //! A `Report` contains the metadata collected about the event
 //! to construct a helpful error message.
 
-use backtrace::Backtrace;
-use serde_derive::Serialize;
 use std::error::Error;
 use std::fmt::Write as FmtWrite;
 use std::mem;
+use std::panic::PanicHookInfo;
 use std::{env, path::Path, path::PathBuf};
+
+use backtrace::Backtrace;
+use serde_derive::Serialize;
 use uuid::Uuid;
+
+use crate::Metadata;
 
 /// Method of failure.
 #[derive(Debug, Serialize, Clone, Copy)]
@@ -58,6 +62,36 @@ impl Report {
             cause,
             backtrace,
         }
+    }
+
+    #[allow(deprecated)]
+    pub fn with_panic(meta: &Metadata, panic_info: &PanicHookInfo<'_>) -> Self {
+        let mut expl = String::new();
+
+        let message = match (
+            panic_info.payload().downcast_ref::<&str>(),
+            panic_info.payload().downcast_ref::<String>(),
+        ) {
+            (Some(s), _) => Some((*s).to_owned()),
+            (_, Some(s)) => Some(s.to_owned()),
+            (None, None) => None,
+        };
+
+        let cause = match message {
+            Some(m) => m,
+            None => "Unknown".into(),
+        };
+
+        match panic_info.location() {
+            Some(location) => expl.push_str(&format!(
+                "Panic occurred in file '{}' at line {}\n",
+                location.file(),
+                location.line()
+            )),
+            None => expl.push_str("Panic location unknown.\n"),
+        }
+
+        Self::new(&meta.name, &meta.version, Method::Panic, expl, cause)
     }
 
     /// Serialize the `Report` to a TOML string.
