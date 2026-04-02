@@ -1,35 +1,21 @@
 //! Panic messages for humans
 //!
-//! Handles panics by calling
-//! [`std::panic::set_hook`](https://doc.rust-lang.org/std/panic/fn.set_hook.html)
-//! to make errors nice for humans.
+//! Reduce the effort for users to report panics back to you
 //!
-//! ## Why?
-//! When you're building a CLI, polish is super important. Even though Rust is
-//! pretty great at safety, it's not unheard of to access the wrong index in a
-//! vector or have an assert fail somewhere.
+//! You can still get the raw output by either:
+//! - Running a debug build
+//! - Setting `RUST_BACKTRACE=1`
 //!
-//! When an error eventually occurs, you probably will want to know about it. So
-//! instead of just providing an error message on the command line, we can create a
-//! call to action for people to submit a report.
+//! ## Example
 //!
-//! This should empower people to engage in communication, lowering the chances
-//! people might get frustrated. And making it easier to figure out what might be
-//! causing bugs.
-//!
-//! ### Default Output
-//!
-//! ```txt
-//! thread 'main' panicked at 'oops', examples/main.rs:2:3
-//! note: Run with `RUST_BACKTRACE=1` for a backtrace.
+//! Add to your `fn main()`:
+//! ```rust
+//! human_panic::setup_panic!();
 //! ```
 //!
-//! ### Human-Panic Output
-//!
+//! When run locally in a release build:
 //! ```txt
-//! Well, this is embarrassing.
-//!
-//! human-panic had a problem and crashed. To help us diagnose the problem you can send us a crash report.
+//! my-program had a problem and crashed. To help us diagnose the problem you can send us a crash report.
 //!
 //! We have generated a report file at "/var/folders/zw/bpfvmq390lv2c6gn_6byyv0w0000gn/T/report-8351cad6-d2b5-4fe8-accd-1fcbf4538792.toml". Submit an issue or email with the subject of "human-panic Crash Report" and include the report as an attachment.
 //!
@@ -39,6 +25,13 @@
 //! We take privacy seriously, and do not perform any automated error collection. In order to improve the software, we rely on people to submit reports.
 //!
 //! Thank you kindly!
+//! ```
+//!
+//! Traditional output:
+//! ```txt
+//! thread 'main' panicked at 'oops', examples/main.rs:2:3
+//! note: Run with `RUST_BACKTRACE=1` for a backtrace.
+//! ```
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![warn(clippy::print_stderr)]
@@ -58,7 +51,16 @@ pub use panic::handle_dump;
 pub use panic::print_msg;
 pub use panic::setup_panic;
 
-/// Initialize [`Metadata`]
+/// Collect Cargo [`Metadata`]
+///
+/// ## Example
+///
+/// ```rust
+/// use human_panic::metadata;
+///
+/// let metadata = metadata!()
+///     .support("- Open a support request by email to support@mycompany.com");
+/// ```
 #[macro_export]
 macro_rules! metadata {
     () => {{
@@ -69,25 +71,27 @@ macro_rules! metadata {
     }};
 }
 
-/// `human-panic` initialisation macro
-///
-/// You can either call this macro with no arguments `setup_panic!()` or
-/// with a Metadata struct, if you don't want the error message to display
-/// the values used in your `Cargo.toml` file.
-///
-/// The Metadata struct can't implement `Default` because of orphan rules, which
-/// means you need to provide all fields for initialisation.
+/// Register `human-panic`
 ///
 /// The macro should be called from within a function, for example as the first line of the
 /// `main()` function of the program.
 ///
-/// ```
-/// use human_panic::setup_panic;
-/// use human_panic::Metadata;
+/// ## Example
 ///
-/// setup_panic!(Metadata::new(env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"))
+/// Default [`metadata!`]
+/// ```rust
+/// use human_panic::setup_panic;
+///
+/// setup_panic!();
+/// ```
+///
+/// Extend or override default [`metadata!`]
+/// ```rust
+/// use human_panic::setup_panic;
+/// use human_panic::metadata;
+///
+/// setup_panic!(metadata!()
 ///     .authors("My Company Support <support@mycompany.com>")
-///     .homepage("support.mycompany.com")
 ///     .support("- Open a support request by email to support@mycompany.com")
 /// );
 /// ```
