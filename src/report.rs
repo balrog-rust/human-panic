@@ -103,7 +103,7 @@ impl Report {
     pub fn persist(&self) -> Result<PathBuf, Box<dyn Error + 'static>> {
         let uuid = Uuid::new_v4().hyphenated().to_string();
         let tmp_dir = env::temp_dir();
-        let file_name = format!("report-{}.toml", &uuid);
+        let file_name = format!("report-{uuid}.toml");
         let file_path = Path::new(&tmp_dir).join(file_name);
         let toml = self.serialize().expect("only using toml-compatible types");
         std::fs::write(&file_path, toml.as_bytes())?;
